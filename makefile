@@ -7,7 +7,7 @@ CFLAGS = -c
 #ds default field
 all: main
 
-	$(CC) bin/main.o -o bin/nbody_cpu
+	$(CC) bin/main.o -o bin/nbody_gpu
 
 #ds object files
 main:
