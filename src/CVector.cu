@@ -155,6 +155,11 @@ double CVector::absoluteValue( const CVector& p_cVector )
     return sqrt( pow( p_cVector.m_dElement0, 2 ) + pow( p_cVector.m_dElement1, 2 ) + pow( p_cVector.m_dElement2, 2 ) );
 }
 
+double CVector::absoluteValue( const float p_fVector[3] )
+{
+    return sqrt( pow( p_fVector[0], 2 ) + pow( p_fVector[1], 2 ) + pow( p_fVector[2], 2 ) );
+}
+
 const CVector CVector::crossProduct( const CVector& p_cVector1, const CVector& p_cVector2 )
 {
     return CVector( p_cVector1.m_dElement1*p_cVector2.m_dElement2-p_cVector1.m_dElement2*p_cVector2.m_dElement1,

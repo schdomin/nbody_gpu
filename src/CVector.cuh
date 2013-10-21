@@ -74,6 +74,7 @@ public:
 public:
 
     static double absoluteValue( const CVector& p_cVector );
+    static double absoluteValue( const float p_fVector[3] );
     static const CVector crossProduct( const CVector& p_cVector1, const CVector& p_cVector2 );
 
 };
