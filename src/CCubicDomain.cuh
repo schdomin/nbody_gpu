@@ -42,7 +42,7 @@ public:
 
     void createParticlesUniformFromNormalDistribution( const double& p_dTargetKineticEnergy, const float& p_fParticleMass = 1.0 );
     void saveParticlesToStream( );
-    void saveIntegralsToStream( const double& p_dMinimumDistance, const double& p_dPotentialDepth );
+    void saveIntegralsToStream( const float& p_fTotalEnergy );
     void writeParticlesToFile( const std::string& p_strFilename, const unsigned int& p_uNumberOfTimeSteps );
     void writeIntegralsToFile( const std::string& p_strFilename, const unsigned int& p_uNumberOfTimeSteps, const double& p_dTimeStepSize );
 
@@ -55,16 +55,13 @@ public:
 //ds accessors/helpers
 public:
 
-    /*
-    double getTotalEnergy( const double& p_dMinimumDistance, const double& p_dPotentialDepth ) const;
-    CVector getCenterOfMass( ) const;
-    CVector getAngularMomentum( ) const;
-    CVector getLinearMomentum( ) const;*/
+    const float* getCenterOfMass( ) const;
+    const float* getAngularMomentum( ) const;
+    const float* getLinearMomentum( ) const;
 
 //ds helpers
 private:
 
-    //double _getLennardJonesPotential( const CParticle& p_CParticle1,  const CParticle& p_CParticle2, const double& p_dMinimumDistance, const double& p_dPotentialDepth ) const;
     float _getUniformlyDistributedNumber( ) const;
     float _getNormallyDistributedNumber( ) const;
 

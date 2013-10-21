@@ -100,22 +100,32 @@ void CCubicDomain::saveParticlesToStream( )
     }
 }
 
-void CCubicDomain::saveIntegralsToStream( const double& p_dMinimumDistance, const double& p_dPotentialDepth )
+void CCubicDomain::saveIntegralsToStream( const float& p_fTotalEnergy )
 {
-    /*ds format: E X Y Z X Y Z X Y Z
+    //ds format: E X Y Z X Y Z X Y Z
 
     //ds buffer for snprintf
     char chBuffer[256];
 
+    //ds get information - caution, memory gets allocated
+    const float* vecCenterOfMass    = getCenterOfMass( );
+    const float* vecAngularMomentum = getAngularMomentum( );
+    const float* vecLinearMomentum  = getLinearMomentum( );
+
     //ds get the integrals stream
-    std::snprintf( chBuffer, 100, "%f %f %f %f %f %f %f %f %f %f", getTotalEnergy( p_dMinimumDistance, p_dPotentialDepth ),
-                                                                   getCenterOfMass( )( 0 ), getCenterOfMass( )( 1 ), getCenterOfMass( )( 2 ),
-                                                                   getAngularMomentum( )( 0 ), getAngularMomentum( )( 1 ), getAngularMomentum( )( 2 ),
-                                                                   getLinearMomentum( )( 0 ), getLinearMomentum( )( 1 ), getLinearMomentum( )( 2 ) );
+    std::snprintf( chBuffer, 100, "%f %f %f %f %f %f %f %f %f %f", p_fTotalEnergy,
+                                                                   vecCenterOfMass[0], vecCenterOfMass[1], vecCenterOfMass[2],
+                                                                   vecAngularMomentum[0], vecAngularMomentum[1], vecAngularMomentum[2],
+                                                                   vecLinearMomentum[0], vecLinearMomentum[1], vecLinearMomentum[2] );
+
+    //ds free memory
+    delete vecCenterOfMass;
+    delete vecAngularMomentum;
+    delete vecLinearMomentum;
 
     //ds append the buffer to our string
     m_strIntegralsInformation += chBuffer;
-    m_strIntegralsInformation += "\n";*/
+    m_strIntegralsInformation += "\n";
 }
 
 void CCubicDomain::writeParticlesToFile( const std::string& p_strFilename, const unsigned int& p_uNumberOfTimeSteps )
@@ -176,90 +186,91 @@ float* CCubicDomain::getMasses( )
     return m_arrMasses;
 }
 
-/*ds accessors/helpers
-double CCubicDomain::getTotalEnergy( const double& p_dMinimumDistance, const double& p_dPotentialDepth ) const
-{
-    //ds total energy to accumulate
-    double dTotalEnergy( 0.0 );
-
-    //ds for each particle
-    for( unsigned int u = 0; u < m_uNumberOfParticles; ++u )
-    {
-        //ds loop over all other particles (dont do the same particles twice)
-        for( unsigned int v = u+1; v < m_uNumberOfParticles; ++v )
-        {
-            //ds add the kinetic component
-            dTotalEnergy += m_arrParticles[u].m_dMass/2*pow( NBody::CVector::absoluteValue( m_arrParticles[u].m_cVelocity ), 2 );
-
-            //ds add the potential component
-            dTotalEnergy += _getLennardJonesPotential( m_arrParticles[u], m_arrParticles[v], p_dMinimumDistance, p_dPotentialDepth );
-        }
-    }
-
-    return dTotalEnergy;
-}
-
-CVector CCubicDomain::getCenterOfMass( ) const
+const float* CCubicDomain::getCenterOfMass( ) const
 {
     //ds center to find
-    CVector cCenter;
+    float* vecCenter = new float[3];
+
+    //ds set it to zero for sure
+    vecCenter[0] = 0.0;
+    vecCenter[1] = 0.0;
+    vecCenter[2] = 0.0;
 
     //ds total mass
-    double dMassTotal( 0.0 );
+    float fMassTotal( 0.0 );
 
     //ds for each particle
     for( unsigned int u = 0; u < m_uNumberOfParticles; ++u )
     {
+        //ds mass instance
+        const float fCurrentMass( m_arrMasses[u] );
+
         //ds add the current relative mass
-        cCenter += m_arrParticles[u].m_dMass*m_arrParticles[u].m_cPosition;
+        vecCenter[0] += fCurrentMass*m_arrPositions[3*u+0];
+        vecCenter[1] += fCurrentMass*m_arrPositions[3*u+1];
+        vecCenter[2] += fCurrentMass*m_arrPositions[3*u+2];
 
         //ds add the current mass
-        dMassTotal += m_arrParticles[u].m_dMass;
+        fMassTotal += fCurrentMass;
     }
 
     //ds divide by total mass
-    cCenter /= dMassTotal;
+    vecCenter[0] /= fMassTotal;
+    vecCenter[1] /= fMassTotal;
+    vecCenter[2] /= fMassTotal;
 
-    return cCenter;
+    return vecCenter;
 }
 
-CVector CCubicDomain::getAngularMomentum( ) const
+const float* CCubicDomain::getAngularMomentum( ) const
 {
     //ds momentum
-    CVector cMomentum;
+    float* vecMomentum = new float[3];
+
+    //ds set it to zero for sure
+    vecMomentum[0] = 0.0;
+    vecMomentum[1] = 0.0;
+    vecMomentum[2] = 0.0;
 
     //ds for each particle
     for( unsigned int u = 0; u < m_uNumberOfParticles; ++u )
     {
+        //ds mass instance
+        const float fCurrentMass( m_arrMasses[u] );
+
         //ds add the current momentum
-        cMomentum += NBody::CVector::crossProduct( m_arrParticles[u].m_cPosition, m_arrParticles[u].m_dMass*m_arrParticles[u].m_cVelocity );
+        vecMomentum[0] += fCurrentMass*( m_arrPositions[3*u+1]*m_arrVelocities[3*u+2] - m_arrPositions[3*u+2]*m_arrVelocities[3*u+1] );
+        vecMomentum[1] += fCurrentMass*( m_arrPositions[3*u+2]*m_arrVelocities[3*u+0] - m_arrPositions[3*u+0]*m_arrVelocities[3*u+2] );
+        vecMomentum[2] += fCurrentMass*( m_arrPositions[3*u+0]*m_arrVelocities[3*u+1] - m_arrPositions[3*u+1]*m_arrVelocities[3*u+0] );
     }
 
-    return cMomentum;
+    return vecMomentum;
 }
 
-CVector CCubicDomain::getLinearMomentum( ) const
+const float* CCubicDomain::getLinearMomentum( ) const
 {
     //ds momentum
-    CVector cMomentum;
+    float* vecMomentum = new float[3];
+
+    //ds set it to zero for sure
+    vecMomentum[0] = 0.0;
+    vecMomentum[1] = 0.0;
+    vecMomentum[2] = 0.0;
 
     //ds for each particle
     for( unsigned int u = 0; u < m_uNumberOfParticles; ++u )
     {
+        //ds mass instance
+        const float fCurrentMass( m_arrMasses[u] );
+
         //ds add the current momentum
-        cMomentum += m_arrParticles[u].m_dMass*m_arrParticles[u].m_cVelocity;
+        vecMomentum[0] += fCurrentMass*m_arrVelocities[3*u+0];
+        vecMomentum[1] += fCurrentMass*m_arrVelocities[3*u+1];
+        vecMomentum[2] += fCurrentMass*m_arrVelocities[3*u+2];
     }
 
-    return cMomentum;
-}*/
-
-//ds helpers
-/*double CCubicDomain::_getLennardJonesPotential( const CParticle& p_CParticle1,  const CParticle& p_CParticle2, const double& p_dMinimumDistance, const double& p_dPotentialDepth ) const
-{
-    //ds formula
-    return 4*p_dPotentialDepth*( pow( p_dMinimumDistance/NBody::CVector::absoluteValue( p_CParticle1.m_cPosition-p_CParticle2.m_cPosition ), 12 )
-                               - pow( p_dMinimumDistance/NBody::CVector::absoluteValue( p_CParticle1.m_cPosition-p_CParticle2.m_cPosition ), 6 ) );
-}*/
+    return vecMomentum;
+}
 
 float CCubicDomain::_getUniformlyDistributedNumber( ) const
 {
