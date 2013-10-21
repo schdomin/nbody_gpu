@@ -7,13 +7,10 @@ namespace NBody
 
 //ds ctor/dtor
 //ds default constructor requires environmental parameters: N number of bodies, dT time step, T number of time steps
-CCubicDomain::CCubicDomain( const std::pair< double, double >& p_pairBoundaries,
-                            const unsigned int& p_uNumberOfParticles ): m_arrPositions( 0 ),
+CCubicDomain::CCubicDomain( const unsigned int& p_uNumberOfParticles ): m_arrPositions( 0 ),
                                                                         m_arrVelocities( 0 ),
                                                                         m_arrAccelerations( 0 ),
                                                                         m_arrMasses( 0 ),
-                                                                        m_pairBoundaries( p_pairBoundaries ),
-                                                                        m_dDomainSize( labs( m_pairBoundaries.first ) + labs( m_pairBoundaries.second ) ),
                                                                         m_uNumberOfParticles( p_uNumberOfParticles ),
                                                                         m_strParticleInformation( "" ),
                                                                         m_strIntegralsInformation( "" )
@@ -24,15 +21,7 @@ CCubicDomain::CCubicDomain( const std::pair< double, double >& p_pairBoundaries,
 //ds default destructor
 CCubicDomain::~CCubicDomain( )
 {
-    //ds deallocate memory - first the 3 element arrays
-    for( unsigned int u = 0; u < m_uNumberOfParticles; ++u )
-    {
-        delete[] m_arrPositions[u];
-        delete[] m_arrVelocities[u];
-        delete[] m_arrAccelerations[u];
-    }
-
-    //ds then the big ones
+    //ds deallocate memory
     delete[] m_arrPositions;
     delete[] m_arrVelocities;
     delete[] m_arrAccelerations;
@@ -42,10 +31,10 @@ CCubicDomain::~CCubicDomain( )
 //ds accessors
 void CCubicDomain::createParticlesUniformFromNormalDistribution( const double& p_dTargetKineticEnergy, const float& p_fParticleMass )
 {
-    //ds allocate arrays
-    m_arrPositions     = new float*[m_uNumberOfParticles];
-    m_arrVelocities    = new float*[m_uNumberOfParticles];
-    m_arrAccelerations = new float*[m_uNumberOfParticles];
+    //ds allocate arrays (linear since we're using CUDA)
+    m_arrPositions     = new float[m_uNumberOfParticles*3];
+    m_arrVelocities    = new float[m_uNumberOfParticles*3];
+    m_arrAccelerations = new float[m_uNumberOfParticles*3];
     m_arrMasses        = new float[m_uNumberOfParticles];
 
     //ds kinetic energy to derive from initial situation
@@ -57,32 +46,25 @@ void CCubicDomain::createParticlesUniformFromNormalDistribution( const double& p
         //ds set the particle mass (same for all particles in this case)
         m_arrMasses[u] = p_fParticleMass;
 
-        //ds allocate new position array
-        m_arrPositions[u] = new float[3];
-
         //ds set the position: uniformly distributed between boundaries in this case
-        m_arrPositions[u][0] = _getUniformlyDistributedNumber( );
-        m_arrPositions[u][1] = _getUniformlyDistributedNumber( );
-        m_arrPositions[u][2] = _getUniformlyDistributedNumber( );
-
-        //ds allocate new velocity array
-        m_arrVelocities[u] = new float[3];
+        m_arrPositions[3*u+0] = _getUniformlyDistributedNumber( );
+        m_arrPositions[3*u+1] = _getUniformlyDistributedNumber( );
+        m_arrPositions[3*u+2] = _getUniformlyDistributedNumber( );
 
         //ds set velocity values: from normal distribution
-        m_arrVelocities[u][0] = _getNormallyDistributedNumber( );
-        m_arrVelocities[u][1] = _getNormallyDistributedNumber( );
-        m_arrVelocities[u][2] = _getNormallyDistributedNumber( );
-
-        //ds allocate new accelerations array
-        m_arrAccelerations[u] = new float[3];
+        m_arrVelocities[3*u+0] = _getNormallyDistributedNumber( );
+        m_arrVelocities[3*u+1] = _getNormallyDistributedNumber( );
+        m_arrVelocities[3*u+2] = _getNormallyDistributedNumber( );
 
         //ds set acceleration values: 0
-        m_arrAccelerations[u][0] = 0;
-        m_arrAccelerations[u][1] = 0;
-        m_arrAccelerations[u][2] = 0;
+        m_arrAccelerations[3*u+0] = 0;
+        m_arrAccelerations[3*u+1] = 0;
+        m_arrAccelerations[3*u+2] = 0;
 
         //ds add the resulting kinetic component (needed below)
-        dKineticEnergy += m_arrMasses[u]/2*pow( NBody::CVector::absoluteValue( m_arrVelocities[u] ), 2 );
+        dKineticEnergy += m_arrMasses[u]/2*pow( sqrt( pow( m_arrVelocities[3*u+0], 2 )
+                                                    + pow( m_arrVelocities[3*u+1], 2 )
+                                                    + pow( m_arrVelocities[3*u+2], 2 ) ), 2 );
     }
 
     //ds calculate the rescaling factor
@@ -92,9 +74,9 @@ void CCubicDomain::createParticlesUniformFromNormalDistribution( const double& p
     for( unsigned int u = 0; u < m_uNumberOfParticles; ++u )
     {
         //ds rescale the velocity component
-        m_arrVelocities[u][0] = dRescalingFactor*m_arrVelocities[u][0];
-        m_arrVelocities[u][1] = dRescalingFactor*m_arrVelocities[u][1];
-        m_arrVelocities[u][2] = dRescalingFactor*m_arrVelocities[u][2];
+        m_arrVelocities[3*u+0] = dRescalingFactor*m_arrVelocities[3*u+0];
+        m_arrVelocities[3*u+1] = dRescalingFactor*m_arrVelocities[3*u+1];
+        m_arrVelocities[3*u+2] = dRescalingFactor*m_arrVelocities[3*u+2];
     }
 }
 
@@ -109,8 +91,8 @@ void CCubicDomain::saveParticlesToStream( )
         char chBuffer[256];
 
         //ds get the particle stream
-        std::snprintf( chBuffer, 100, "%f %f %f %f %f %f", m_arrPositions[u][0], m_arrPositions[u][1], m_arrPositions[u][2],
-                                                           m_arrVelocities[u][0], m_arrVelocities[u][1], m_arrVelocities[u][2] );
+        std::snprintf( chBuffer, 100, "%f %f %f %f %f %f", m_arrPositions[3*u+0], m_arrPositions[3*u+1], m_arrPositions[3*u+2],
+                                                           m_arrVelocities[3*u+0], m_arrVelocities[3*u+1], m_arrVelocities[3*u+2] );
 
         //ds append the buffer to our string
         m_strParticleInformation += chBuffer;
@@ -174,17 +156,17 @@ void CCubicDomain::writeIntegralsToFile( const std::string& p_strFilename, const
     ofsFile.close( );
 }
 
-float** CCubicDomain::getPositions( )
+float* CCubicDomain::getPositions( )
 {
     return m_arrPositions;
 }
 
-float** CCubicDomain::getVelocities( )
+float* CCubicDomain::getVelocities( )
 {
     return m_arrVelocities;
 }
 
-float** CCubicDomain::getAccelerations( )
+float* CCubicDomain::getAccelerations( )
 {
     return m_arrAccelerations;
 }
@@ -192,45 +174,6 @@ float** CCubicDomain::getAccelerations( )
 float* CCubicDomain::getMasses( )
 {
     return m_arrMasses;
-}
-
-void CCubicDomain::setPositions( float** p_arrPositions )
-{
-    for( unsigned int u = 0; u < m_uNumberOfParticles; ++u )
-    {
-        m_arrPositions[u][0] = p_arrPositions[u][0];
-        m_arrPositions[u][1] = p_arrPositions[u][1];
-        m_arrPositions[u][2] = p_arrPositions[u][2];
-    }
-
-}
-
-void CCubicDomain::setVelocities( float** p_arrVelocities )
-{
-    for( unsigned int u = 0; u < m_uNumberOfParticles; ++u )
-    {
-        m_arrVelocities[u][0] = p_arrVelocities[u][0];
-        m_arrVelocities[u][1] = p_arrVelocities[u][1];
-        m_arrVelocities[u][2] = p_arrVelocities[u][2];
-    }
-}
-
-void CCubicDomain::setAccelerations( float** p_arrAccelerations )
-{
-    for( unsigned int u = 0; u < m_uNumberOfParticles; ++u )
-    {
-        m_arrAccelerations[u][0] = p_arrAccelerations[u][0];
-        m_arrAccelerations[u][1] = p_arrAccelerations[u][1];
-        m_arrAccelerations[u][2] = p_arrAccelerations[u][2];
-    }
-}
-
-void CCubicDomain::setMasses( float* p_arrMasses )
-{
-    for( unsigned int u = 0; u < m_uNumberOfParticles; ++u )
-    {
-        m_arrMasses[u] = p_arrMasses[u];
-    }
 }
 
 /*ds accessors/helpers
