@@ -1,4 +1,5 @@
 #include "CCubicDomain.cuh"           //ds domain structure
+#include "Timer.h"                    //ds time measurement
 #include <iostream>                   //ds cout
 #include <cuda.h>                     //ds needed for eclipse indexer only (not for compilation)
 #include <cuda_runtime.h>             //ds needed for eclipse indexer only (not for compilation)
@@ -25,6 +26,9 @@ __global__ void updateParticlesVelocityVerlet( const unsigned int p_uNumberOfPar
 
 int main( int argc, char** argv )
 {
+    //ds start timing
+    Timer tmTimer; tmTimer.start( );
+
     //ds domain configuration
     const std::pair< float, float > pairBoundaries( -1, 1 );
     const unsigned int uNumberOfParticles( 100 );
@@ -33,7 +37,7 @@ int main( int argc, char** argv )
     NBody::CCubicDomain cDomain( uNumberOfParticles );
 
     //ds target kinetic energy
-    const double dTargetKineticEnergy( 100.0 );
+    const double dTargetKineticEnergy( 1000.0 );
 
     //ds create particles uniformly from a normal distribution - no CUDA call here
     cDomain.createParticlesUniformFromNormalDistribution( dTargetKineticEnergy );
@@ -101,6 +105,16 @@ int main( int argc, char** argv )
     //ds save the streams to a file
     cDomain.writeParticlesToFile( "bin/simulation.txt", uNumberOfTimeSteps );
     //cDomain.writeIntegralsToFile( "bin/integrals.txt", uNumberOfTimeSteps, fTimeStepSize );
+
+    //ds stop timing
+    const double dDurationSeconds( tmTimer.stop( ) );
+
+    std::cout << "-------GPU SETUP------------------------------------------------------------" << std::endl;
+    std::cout << "  Number of particles: " << uNumberOfParticles << std::endl;
+    std::cout << "Target kinetic energy: " << dTargetKineticEnergy << std::endl;
+    std::cout << "  Number of timesteps: " << uNumberOfTimeSteps << std::endl;
+    std::cout << "     Computation time: " << dDurationSeconds << std::endl;
+    std::cout << "----------------------------------------------------------------------------" << std::endl;
 
     return 0;
 }
