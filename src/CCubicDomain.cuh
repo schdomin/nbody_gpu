@@ -40,9 +40,10 @@ private:
 //ds accessors
 public:
 
-    void createParticlesUniformFromNormalDistribution( const double& p_dTargetKineticEnergy, const float& p_fParticleMass = 1.0 );
+    void createParticlesUniformFromNormalDistribution( const float& p_dTargetKineticEnergy, const float& p_fParticleMass = 1.0 );
     void saveParticlesToStream( );
     void saveIntegralsToStream( const float& p_fTotalEnergy );
+    void saveIntegralsToStream( const float& p_fTotalEnergy, const float p_vecCenterOfMass[3] );
     void writeParticlesToFile( const std::string& p_strFilename, const unsigned int& p_uNumberOfTimeSteps );
     void writeIntegralsToFile( const std::string& p_strFilename, const unsigned int& p_uNumberOfTimeSteps, const double& p_dTimeStepSize );
 

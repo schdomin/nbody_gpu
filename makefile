@@ -2,7 +2,7 @@
 CC = nvcc
 
 #ds compiler flags
-CFLAGS = -c
+CFLAGS = -c -arch sm_13
 
 #ds default field
 all: main

@@ -52,8 +52,20 @@ for u = 1:1:uNumberOfTimesteps
     
 end
 
+%ds get max values for figure axis
+dMaxTime      = double( uNumberOfTimesteps )*dTimestepSize;
+dMaxEnergy    = max( vecTotalEnergy );
+dMinEnergy    = min( vecTotalEnergy );
+dMaxCenter    = max( [max( vecCenterOfMassX ), max( vecCenterOfMassY ), max( vecCenterOfMassZ )] );
+dMinCenter    = min( [min( vecCenterOfMassX ), min( vecCenterOfMassY ), min( vecCenterOfMassZ )] );
+dMaxAMomentum = max( [max( vecTotalAngularMomentumX ), max( vecTotalAngularMomentumY ), max( vecTotalAngularMomentumZ )] );
+dMinAMomentum = min( [min( vecTotalAngularMomentumX ), min( vecTotalAngularMomentumY ), min( vecTotalAngularMomentumZ )] );
+dMaxLMomentum = max( [max( vecTotalLinearMomentumX ), max( vecTotalLinearMomentumY ), max( vecTotalLinearMomentumZ )] );
+dMinLMomentum = max( [min( vecTotalAngularMomentumX ), min( vecTotalAngularMomentumY ), min( vecTotalAngularMomentumZ )] );
+
 hFigure1 = figure( 1 );
 plot( vecTimeline, vecTotalEnergy );
+axis([0, dMaxTime, 0, 1.5*dMaxEnergy]);
 title( 'Total energy' );
 xlabel( 'Time' );
 ylabel( 'Energy' );
@@ -61,6 +73,7 @@ legend( 'Total energy' );
 
 hFigure2 = figure( 2 );
 plot( vecTimeline, [ vecCenterOfMassX, vecCenterOfMassY, vecCenterOfMassZ ] );
+axis([0, dMaxTime, dMinCenter, 1.5*dMaxCenter]);
 title( 'Center of mass' );
 xlabel( 'Time' );
 ylabel( 'Coordinate' );
@@ -68,6 +81,7 @@ legend( 'x', 'y', 'z' );
 
 hFigure3 = figure( 3 );
 plot( vecTimeline, [ vecTotalAngularMomentumX, vecTotalAngularMomentumY, vecTotalAngularMomentumZ ] );
+axis([0, dMaxTime, dMinAMomentum, 1.5*dMaxAMomentum]);
 title( 'Total angular momentum' );
 xlabel( 'Time' );
 ylabel( 'Coordinate' );
@@ -75,6 +89,7 @@ legend( 'x', 'y', 'z' );
 
 hFigure4 = figure( 4 );
 plot( vecTimeline, [ vecTotalLinearMomentumX, vecTotalLinearMomentumY, vecTotalLinearMomentumZ ] );
+axis([0, dMaxTime, dMinLMomentum, 1.5*dMaxLMomentum]);
 title( 'Total linear momentum' );
 xlabel( 'Time' );
 ylabel( 'Coordinate' );
@@ -90,4 +105,3 @@ saveas( hFigure4, 'totallinearmomentum.jpg' );
 disp( 'function ended successfully' );
 
 end
-

@@ -29,7 +29,7 @@ CCubicDomain::~CCubicDomain( )
 }
 
 //ds accessors
-void CCubicDomain::createParticlesUniformFromNormalDistribution( const double& p_dTargetKineticEnergy, const float& p_fParticleMass )
+void CCubicDomain::createParticlesUniformFromNormalDistribution( const float& p_dTargetKineticEnergy, const float& p_fParticleMass )
 {
     //ds allocate arrays (linear since we're using CUDA)
     m_arrPositions     = new float[m_uNumberOfParticles*3];
@@ -38,7 +38,7 @@ void CCubicDomain::createParticlesUniformFromNormalDistribution( const double& p
     m_arrMasses        = new float[m_uNumberOfParticles];
 
     //ds kinetic energy to derive from initial situation
-    double dKineticEnergy( 0.0 );
+    float dKineticEnergy( 0.0 );
 
     //ds set particle information for each
     for( unsigned int u = 0; u < m_uNumberOfParticles; ++u )
@@ -68,7 +68,7 @@ void CCubicDomain::createParticlesUniformFromNormalDistribution( const double& p
     }
 
     //ds calculate the rescaling factor
-    const double dRescalingFactor( sqrt( p_dTargetKineticEnergy/dKineticEnergy ) );
+    const float dRescalingFactor( sqrt( p_dTargetKineticEnergy/dKineticEnergy ) );
 
     //ds for each particle
     for( unsigned int u = 0; u < m_uNumberOfParticles; ++u )
@@ -120,6 +120,34 @@ void CCubicDomain::saveIntegralsToStream( const float& p_fTotalEnergy )
 
     //ds free memory
     delete vecCenterOfMass;
+    delete vecAngularMomentum;
+    delete vecLinearMomentum;
+
+    //ds append the buffer to our string
+    m_strIntegralsInformation += chBuffer;
+    m_strIntegralsInformation += "\n";
+}
+
+void CCubicDomain::saveIntegralsToStream( const float& p_fTotalEnergy, const float p_vecCenterOfMass[3] )
+{
+    //ds format: E X Y Z X Y Z X Y Z
+
+    //ds buffer for snprintf
+    char chBuffer[256];
+
+    //ds get information - caution, memory gets allocated
+    //const float* vecCenterOfMass    = getCenterOfMass( );
+    const float* vecAngularMomentum = getAngularMomentum( );
+    const float* vecLinearMomentum  = getLinearMomentum( );
+
+    //ds get the integrals stream
+    std::snprintf( chBuffer, 100, "%f %f %f %f %f %f %f %f %f %f", p_fTotalEnergy,
+                                                                   p_vecCenterOfMass[0], p_vecCenterOfMass[1], p_vecCenterOfMass[2],
+                                                                   vecAngularMomentum[0], vecAngularMomentum[1], vecAngularMomentum[2],
+                                                                   vecLinearMomentum[0], vecLinearMomentum[1], vecLinearMomentum[2] );
+
+    //ds free memory
+    //delete vecCenterOfMass;
     delete vecAngularMomentum;
     delete vecLinearMomentum;
 
@@ -281,10 +309,10 @@ float CCubicDomain::_getUniformlyDistributedNumber( ) const
 float CCubicDomain::_getNormallyDistributedNumber( ) const
 {
     //ds calculate the uniform number first [0,1]
-    const double dUniformNumber( drand48( ) );
+    const float dUniformNumber( static_cast< float >( drand48( ) ) );
 
     //ds return the normal one
-    return static_cast< float >( sqrt( -2*log( dUniformNumber ) )*cos( 2*M_PI*dUniformNumber ) );
+    return static_cast< float >( sqrt( -2*log( dUniformNumber ) )*cos( 2*static_cast< float >( M_PI )*dUniformNumber ) );
 }
 
 } //ds namespace NBody
