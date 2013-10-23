@@ -56,8 +56,8 @@ int main( int argc, char** argv )
     Timer tmTimer; tmTimer.start( );
 
     //ds domain configuration
-    const std::pair< float, float > pairBoundaries( -1, 1 );
-    const unsigned int uNumberOfParticles( 100 );
+    const std::pair< float, float > pairBoundaries( -1.0, 1.0 );
+    const unsigned int uNumberOfParticles( 1000 );
 
     //ds allocate a domain to work with specifying number of particles and timing
     NBody::CCubicDomain cDomain( uNumberOfParticles );
@@ -112,7 +112,7 @@ int main( int argc, char** argv )
     //ds current simulation configuration
     const float fTimeStepSize            ( 0.0001 );
     const unsigned int uNumberOfTimeSteps( 5000 );
-    const float fMinimumDistance         ( 0.05 );
+    const float fMinimumDistance         ( 5/uNumberOfParticles ); //pow( 1.0/uNumberOfParticles, 1.0/3 ) ); <- causes massive accelerations
     const float fPotentialDepth          ( 0.01 );
 
     std::cout << "--------GPU SETUP------------------------------------------------------------" << std::endl;
@@ -258,7 +258,7 @@ __global__ void computeAccelerationsLennardJones( const unsigned int p_uNumberOf
         if( u != uIndex1D )
         {
             //ds cutoff distance
-            const float fDistanceCutoff = 2.5*p_fMinimumDistance;
+            const float fDistanceCutoff( 2.5*p_fMinimumDistance );
 
             //ds we have to loop over the cubic boundary conditions
             for( float dX = p_fLowerBoundary; dX < p_fUpperBoundary+1.0; ++dX )
@@ -318,9 +318,9 @@ __global__ void updateParticlesVelocityVerlet( const unsigned int p_uNumberOfPar
     const float fDomainSize( abs( p_fLowerBoundary ) + abs( p_fUpperBoundary ) );
 
     //ds velocity-verlet for position
-    p_arrPositions[uIndex3D+0] = p_arrPositions[uIndex3D+0] + p_fTimeStepSize*p_arrVelocities[uIndex3D+0] + ( 1/2 )*pow( p_fTimeStepSize, 2 )*p_arrAccelerations[uIndex3D+0];
-    p_arrPositions[uIndex3D+1] = p_arrPositions[uIndex3D+1] + p_fTimeStepSize*p_arrVelocities[uIndex3D+1] + ( 1/2 )*pow( p_fTimeStepSize, 2 )*p_arrAccelerations[uIndex3D+1];
-    p_arrPositions[uIndex3D+2] = p_arrPositions[uIndex3D+2] + p_fTimeStepSize*p_arrVelocities[uIndex3D+2] + ( 1/2 )*pow( p_fTimeStepSize, 2 )*p_arrAccelerations[uIndex3D+2];
+    p_arrPositions[uIndex3D+0] = p_arrPositions[uIndex3D+0] + p_fTimeStepSize*p_arrVelocities[uIndex3D+0] + 1/2*pow( p_fTimeStepSize, 2 )*p_arrAccelerations[uIndex3D+0];
+    p_arrPositions[uIndex3D+1] = p_arrPositions[uIndex3D+1] + p_fTimeStepSize*p_arrVelocities[uIndex3D+1] + 1/2*pow( p_fTimeStepSize, 2 )*p_arrAccelerations[uIndex3D+1];
+    p_arrPositions[uIndex3D+2] = p_arrPositions[uIndex3D+2] + p_fTimeStepSize*p_arrVelocities[uIndex3D+2] + 1/2*pow( p_fTimeStepSize, 2 )*p_arrAccelerations[uIndex3D+2];
 
     //ds produce periodic boundary shifting - check each element: x,y,z
     for( unsigned int v = 0; v < 3; ++v )
@@ -372,22 +372,18 @@ __global__ void getTotalEnergy( const unsigned int p_uNumberOfParticles,
     //ds wait until all threads are done
     __syncthreads( );
 
+    //ds add the kinetic component of the current particle
+    s_arrTotalEnergy[uIndex1D] += p_arrMasses[uIndex1D]/2*pow( sqrt( pow( p_arrVelocities[uIndex3D+0], 2 )
+                                                                   + pow( p_arrVelocities[uIndex3D+1], 2 )
+                                                                   + pow( p_arrVelocities[uIndex3D+2], 2 ) ), 2 );
+
     //ds calculate the total energy of the new configuration - loop over all other particles (dont do the same particles twice)
     for( unsigned int u = uIndex1D+1; u < p_uNumberOfParticles; ++u )
     {
-        //ds add the kinetic component from the other particle
-        s_arrTotalEnergy[uIndex1D] += p_arrMasses[u]/2*pow( sqrt( pow( p_arrVelocities[3*u+0], 2 ) + pow( p_arrVelocities[3*u+1], 2 ) + pow( p_arrVelocities[3*u+2], 2 ) ), 2 );
-
-        //ds get the radial vector between the particles
-        float vecRadius[3];
-
-        //ds calculate the distance: particle2 - particle1
-        vecRadius[0] = p_arrPositions[3*u+0] - p_arrPositions[uIndex3D+0];
-        vecRadius[1] = p_arrPositions[3*u+1] - p_arrPositions[uIndex3D+1];
-        vecRadius[2] = p_arrPositions[3*u+2] - p_arrPositions[uIndex3D+2];
-
         //ds get the absolute distance
-        const float fDistanceAbsolute( sqrt( pow( vecRadius[0], 2 ) + pow( vecRadius[1], 2 ) + pow( vecRadius[2], 2 ) ) );
+        const float fDistanceAbsolute( sqrt( pow( p_arrPositions[3*u+0] - p_arrPositions[uIndex3D+0], 2 )
+                                           + pow( p_arrPositions[3*u+1] - p_arrPositions[uIndex3D+1], 2 )
+                                           + pow( p_arrPositions[3*u+2] - p_arrPositions[uIndex3D+2], 2 ) ) );
 
         //ds add the potential component
         s_arrTotalEnergy[uIndex1D] += 4*p_fPotentialDepth*( pow( p_fMinimumDistance/fDistanceAbsolute, 12 ) - pow( p_fMinimumDistance/fDistanceAbsolute, 6 ) );
