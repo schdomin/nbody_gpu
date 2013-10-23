@@ -115,9 +115,30 @@ int main( int argc, char** argv )
     const float fMinimumDistance         ( 0.05 );
     const float fPotentialDepth          ( 0.01 );
 
+    std::cout << "--------GPU SETUP------------------------------------------------------------" << std::endl;
+    std::cout << "  Number of particles: " << uNumberOfParticles << std::endl;
+    std::cout << "Target kinetic energy: " << fTargetKineticEnergy << std::endl;
+    std::cout << "  Number of timesteps: " << uNumberOfTimeSteps << std::endl;
+
+    //ds information
+    std::cout << "               Status:  0% done - current step: 0";
+
     //ds start simulation
-    for( unsigned int uCurrentTimeStep = 0; uCurrentTimeStep < uNumberOfTimeSteps; ++uCurrentTimeStep )
+    for( unsigned int uCurrentTimeStep = 1; uCurrentTimeStep < uNumberOfTimeSteps+1; ++uCurrentTimeStep )
     {
+        //ds calculate percentage done
+        const float fPercentageDone( 100.0*uCurrentTimeStep/uNumberOfTimeSteps );
+
+        //ds get a formatted string -> 100% -> 3 digits
+        char chBuffer[4];
+
+        //ds fill the buffer
+        std::snprintf( chBuffer, 4, "%3.0f", fPercentageDone );
+
+        //ds print info
+        std::cout << '\xd';
+        std::cout << "               Status: " << chBuffer << "% done - current step: " << uCurrentTimeStep;
+
         //ds calculate the new accelerations
         computeAccelerationsLennardJones<<< 1, uNumberOfParticles >>>( uNumberOfParticles,
                                                                        d_arrPositions,
@@ -193,12 +214,10 @@ int main( int argc, char** argv )
     //ds stop timing
     const double dDurationSeconds( tmTimer.stop( ) );
 
-    std::cout << "-------GPU SETUP------------------------------------------------------------" << std::endl;
-    std::cout << "  Number of particles: " << uNumberOfParticles << std::endl;
-    std::cout << "Target kinetic energy: " << fTargetKineticEnergy << std::endl;
-    std::cout << "  Number of timesteps: " << uNumberOfTimeSteps << std::endl;
+    //ds cause an output ostream
+    std::cout << std::endl;
     std::cout << "     Computation time: " << dDurationSeconds << std::endl;
-    std::cout << "----------------------------------------------------------------------------" << std::endl;
+    std::cout << "-----------------------------------------------------------------------------" << std::endl;
 
     return 0;
 }

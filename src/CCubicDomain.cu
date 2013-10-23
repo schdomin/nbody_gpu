@@ -91,7 +91,7 @@ void CCubicDomain::saveParticlesToStream( )
         char chBuffer[256];
 
         //ds get the particle stream
-        std::snprintf( chBuffer, 100, "%f %f %f %f %f %f", m_arrPositions[3*u+0], m_arrPositions[3*u+1], m_arrPositions[3*u+2],
+        std::snprintf( chBuffer, 256, "%f %f %f %f %f %f", m_arrPositions[3*u+0], m_arrPositions[3*u+1], m_arrPositions[3*u+2],
                                                            m_arrVelocities[3*u+0], m_arrVelocities[3*u+1], m_arrVelocities[3*u+2] );
 
         //ds append the buffer to our string
