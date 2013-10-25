@@ -57,7 +57,7 @@ int main( int argc, char** argv )
 
     //ds domain configuration
     const std::pair< float, float > pairBoundaries( -1.0, 1.0 );
-    const unsigned int uNumberOfParticles( 1000 );
+    const unsigned int uNumberOfParticles( 100 );
 
     //ds allocate a domain to work with specifying number of particles and timing
     NBody::CCubicDomain cDomain( uNumberOfParticles );
