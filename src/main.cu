@@ -52,20 +52,47 @@ __global__ void getTotalAngularMomentum( const unsigned int p_uNumberOfParticles
 
 int main( int argc, char** argv )
 {
+    //ds check simple input arguments - CAUTION: the implementation expects real numbers, the simulation will be corrupted if invalid values are entered
+    if( 4 != argc )
+    {
+        //ds inform
+        std::cout << "usage: nbody_gpu [Number of particles] [Number of time steps] [Target energy]" << std::endl;
+        return 0;
+    }
+
     //ds start timing
     Timer tmTimer; tmTimer.start( );
 
     //ds domain configuration
-    const std::pair< float, float > pairBoundaries( -1.0, 1.0 );
-    const unsigned int uNumberOfParticles( 100 );
+    const std::pair< double, double > pairBoundaries( -1.0, 1.0 );
+    const float fDomainWidth( fabs( pairBoundaries.first ) + fabs( pairBoundaries.second ) );
+    const unsigned int uNumberOfParticles( atoi( argv[1] ) );
+
+    //ds current simulation configuration
+    const float fTimeStepSize( 0.0001 );
+    const unsigned int uNumberOfTimeSteps( atoi( argv[2] ) );
+    const float fMinimumDistance( pow( 1.0/uNumberOfParticles, 1.0/3 ) );
+    const float fPotentialDepth( 1.0 );
+
+    //ds target kinetic energy
+    const float fTargetKineticEnergy( atol( argv[3] ) );
+
+    std::cout << "------- GPU SETUP -----------------------------------------------------------" << std::endl;
+    std::cout << "  Number of particles: " << uNumberOfParticles << std::endl;
+    std::cout << "        Boundary (3D): [" << pairBoundaries.first << ", " << pairBoundaries.second << "]" << std::endl;
+    std::cout << "         Domain Width: " << fDomainWidth << std::endl;
+    std::cout << "     Minimum distance: " << fMinimumDistance << std::endl;
+    std::cout << "      Cutoff distance: " << 2.5*fMinimumDistance << std::endl;
+    std::cout << "      Potential depth: " << fPotentialDepth << std::endl;
+    std::cout << "Target kinetic energy: " << fTargetKineticEnergy << std::endl;
+    std::cout << " Number of time steps: " << uNumberOfTimeSteps << std::endl;
+    std::cout << "       Time step size: " << fTimeStepSize << std::endl;
+    std::cout << "-----------------------------------------------------------------------------" << std::endl;
 
     //ds allocate a domain to work with specifying number of particles and timing
     NBody::CCubicDomain cDomain( uNumberOfParticles );
 
-    //ds target kinetic energy
-    const float fTargetKineticEnergy( 1000.0 );
-
-    //ds create particles uniformly from a normal distribution - no CUDA call here
+    //ds create particles uniformly from a normal distribution
     cDomain.createParticlesUniformFromNormalDistribution( fTargetKineticEnergy );
 
     //ds host information: particles
@@ -108,17 +135,6 @@ int main( int argc, char** argv )
     cudaMemcpy( d_arrVelocities   , h_arrVelocities   , uNumberOfParticles*3*sizeof( float ), cudaMemcpyHostToDevice );
     cudaMemcpy( d_arrAccelerations, h_arrAccelerations, uNumberOfParticles*3*sizeof( float ), cudaMemcpyHostToDevice );
     cudaMemcpy( d_arrMasses       , h_arrMasses       , uNumberOfParticles*sizeof( float )  , cudaMemcpyHostToDevice );
-
-    //ds current simulation configuration
-    const float fTimeStepSize            ( 0.0001 );
-    const unsigned int uNumberOfTimeSteps( 5000 );
-    const float fMinimumDistance         ( 5/uNumberOfParticles ); //pow( 1.0/uNumberOfParticles, 1.0/3 ) ); <- causes massive accelerations
-    const float fPotentialDepth          ( 0.01 );
-
-    std::cout << "--------GPU SETUP------------------------------------------------------------" << std::endl;
-    std::cout << "  Number of particles: " << uNumberOfParticles << std::endl;
-    std::cout << "Target kinetic energy: " << fTargetKineticEnergy << std::endl;
-    std::cout << "  Number of timesteps: " << uNumberOfTimeSteps << std::endl;
 
     //ds information
     std::cout << "               Status:  0% done - current step: 0";
@@ -278,8 +294,8 @@ __global__ void computeAccelerationsLennardJones( const unsigned int p_uNumberOf
                         //ds get the absolute distance
                         const float fDistanceAbsolute( sqrt( pow( vecRadius[0], 2 ) + pow( vecRadius[1], 2 ) + pow( vecRadius[2], 2 ) ) );
 
-                        //ds if we are within the cutoff range (only smaller here to avoid double overhead for >=)
-                        if( fDistanceCutoff > fDistanceAbsolute )
+                        //ds if we are between the minimum distance and the cutoff range
+                        if( p_fMinimumDistance < fDistanceAbsolute && fDistanceCutoff > fDistanceAbsolute )
                         {
                             //ds calculate the lennard jones force prefix
                             const float fLJFPrefix( -24*p_fPotentialDepth*( 2*pow( p_fMinimumDistance/fDistanceAbsolute, 12 ) - pow( p_fMinimumDistance/fDistanceAbsolute, 6  ) )
@@ -318,9 +334,9 @@ __global__ void updateParticlesVelocityVerlet( const unsigned int p_uNumberOfPar
     const float fDomainSize( abs( p_fLowerBoundary ) + abs( p_fUpperBoundary ) );
 
     //ds velocity-verlet for position
-    p_arrPositions[uIndex3D+0] = p_arrPositions[uIndex3D+0] + p_fTimeStepSize*p_arrVelocities[uIndex3D+0] + 1/2*pow( p_fTimeStepSize, 2 )*p_arrAccelerations[uIndex3D+0];
-    p_arrPositions[uIndex3D+1] = p_arrPositions[uIndex3D+1] + p_fTimeStepSize*p_arrVelocities[uIndex3D+1] + 1/2*pow( p_fTimeStepSize, 2 )*p_arrAccelerations[uIndex3D+1];
-    p_arrPositions[uIndex3D+2] = p_arrPositions[uIndex3D+2] + p_fTimeStepSize*p_arrVelocities[uIndex3D+2] + 1/2*pow( p_fTimeStepSize, 2 )*p_arrAccelerations[uIndex3D+2];
+    p_arrPositions[uIndex3D+0] = p_arrPositions[uIndex3D+0] + p_fTimeStepSize*p_arrVelocities[uIndex3D+0] + 1.0/2*pow( p_fTimeStepSize, 2 )*p_arrAccelerations[uIndex3D+0];
+    p_arrPositions[uIndex3D+1] = p_arrPositions[uIndex3D+1] + p_fTimeStepSize*p_arrVelocities[uIndex3D+1] + 1.0/2*pow( p_fTimeStepSize, 2 )*p_arrAccelerations[uIndex3D+1];
+    p_arrPositions[uIndex3D+2] = p_arrPositions[uIndex3D+2] + p_fTimeStepSize*p_arrVelocities[uIndex3D+2] + 1.0/2*pow( p_fTimeStepSize, 2 )*p_arrAccelerations[uIndex3D+2];
 
     //ds produce periodic boundary shifting - check each element: x,y,z
     for( unsigned int v = 0; v < 3; ++v )
@@ -377,6 +393,9 @@ __global__ void getTotalEnergy( const unsigned int p_uNumberOfParticles,
                                                                    + pow( p_arrVelocities[uIndex3D+1], 2 )
                                                                    + pow( p_arrVelocities[uIndex3D+2], 2 ) ), 2 );
 
+    //ds cutoff
+    const float fDistanceCutoff( 2.5*p_fMinimumDistance );
+
     //ds calculate the total energy of the new configuration - loop over all other particles (dont do the same particles twice)
     for( unsigned int u = uIndex1D+1; u < p_uNumberOfParticles; ++u )
     {
@@ -385,8 +404,12 @@ __global__ void getTotalEnergy( const unsigned int p_uNumberOfParticles,
                                            + pow( p_arrPositions[3*u+1] - p_arrPositions[uIndex3D+1], 2 )
                                            + pow( p_arrPositions[3*u+2] - p_arrPositions[uIndex3D+2], 2 ) ) );
 
-        //ds add the potential component
-        s_arrTotalEnergy[uIndex1D] += 4*p_fPotentialDepth*( pow( p_fMinimumDistance/fDistanceAbsolute, 12 ) - pow( p_fMinimumDistance/fDistanceAbsolute, 6 ) );
+        //ds if we are between the minimum distance and the cutoff range
+        if( p_fMinimumDistance < fDistanceAbsolute && fDistanceCutoff > fDistanceAbsolute )
+        {
+            //ds add the potential component
+            s_arrTotalEnergy[uIndex1D] += 4*p_fPotentialDepth*( pow( p_fMinimumDistance/fDistanceAbsolute, 12 ) - pow( p_fMinimumDistance/fDistanceAbsolute, 6 ) );
+        }
     }
 
     //ds wait until all threads are done
